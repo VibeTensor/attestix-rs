@@ -10,7 +10,7 @@ repository = "https://github.com/VibeTensor/attestix-rs"
 homepage = "https://attestix.io"
 documentation = "https://docs.rs/attestix"
 readme = "README.md"
-keywords = ["attestix", "verifiable-credentials", "ed25519", "did", "ucan"]
+keywords = ["attestix", "verifiable-creds", "ed25519", "did", "ucan"]
 categories = ["cryptography", "authentication", "no-std::no-alloc", "wasm"]
 exclude = ["/.github", "/testdata"]
 
