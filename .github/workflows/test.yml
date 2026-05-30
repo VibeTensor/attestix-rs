@@ -1,0 +1,54 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  test:
+    name: build + conformance vectors
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v4.3.0
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      # dtolnay/rust-toolchain stable (pinned)
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      # Swatinem/rust-cache v2 (pinned)
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Format check (informational)
+        run: cargo fmt --all --check
+        continue-on-error: true
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features
+      - name: Build
+        run: cargo build --verbose
+      - name: Run conformance vectors
+        run: cargo test --verbose -- --nocapture
+
+  wasm:
+    name: wasm32 build (key Rust use-case)
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v4.3.0
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      # dtolnay/rust-toolchain stable + wasm target (pinned)
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      # Swatinem/rust-cache v2 (pinned)
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+      - name: Build for wasm32 (verify-only, browser/embedded target)
+        run: cargo build --target wasm32-unknown-unknown --lib

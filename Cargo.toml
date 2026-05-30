@@ -1,0 +1,31 @@
+[package]
+name = "attestix"
+version = "0.4.0"
+edition = "2021"
+rust-version = "1.74"
+description = "Attestix offline credential verifier — verify Ed25519 W3C Verifiable Credentials and UCAN delegation chains issued by the Attestix Python core, with no Python runtime. Reproduces the Attestix JCS-style canonical form (NFC-normalized, not strict RFC 8785)."
+authors = ["VibeTensor <hello@vibetensor.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/VibeTensor/attestix-rs"
+homepage = "https://attestix.io"
+documentation = "https://docs.rs/attestix"
+readme = "README.md"
+keywords = ["attestix", "verifiable-credentials", "ed25519", "did", "ucan"]
+categories = ["cryptography", "authentication", "no-std::no-alloc", "wasm"]
+exclude = ["/.github", "/testdata"]
+
+[dependencies]
+ed25519-dalek = { version = "2", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "arbitrary_precision"] }
+bs58 = "0.5"
+base64 = "0.22"
+unicode-normalization = "0.1"
+time = { version = "0.3", default-features = false, features = ["parsing"] }
+
+[dev-dependencies]
+hex = "0.4"
+
+[features]
+default = ["std"]
+std = ["ed25519-dalek/std"]
