@@ -1,0 +1,65 @@
+# Publish the `attestix` crate to crates.io on a version tag.
+#
+# SETUP (one-time, done by a human in the GitHub web UI — never paste a token
+# into a PR, an issue, a commit, or a chat):
+#   1. crates.io -> Account Settings -> API Tokens -> New Token
+#      scopes: publish-new + publish-update.  Copy it once.
+#   2. This repo -> Settings -> Secrets and variables -> Actions -> New repository
+#      secret named CARGO_REGISTRY_TOKEN.  Paste the token there (GitHub stores
+#      it encrypted; it is never visible again and never reaches a maintainer).
+#
+# RELEASE:
+#   - Bump `version` in Cargo.toml, commit, then push a matching tag:
+#       git tag v0.4.0 && git push origin v0.4.0
+#   - This workflow runs the full test suite (conformance vectors), then a
+#     dry-run, then publishes.  A failed test or a tag/Cargo.toml version
+#     mismatch blocks the publish.
+
+name: publish
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  publish:
+    name: publish to crates.io
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v4.3.0
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      # dtolnay/rust-toolchain stable (pinned)
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: stable
+
+      - name: Verify tag matches Cargo.toml version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          CRATE="$(cargo metadata --no-deps --format-version 1 \
+            | python3 -c 'import sys,json; print(json.load(sys.stdin)["packages"][0]["version"])')"
+          echo "tag=$TAG crate=$CRATE"
+          if [ "$TAG" != "$CRATE" ]; then
+            echo "::error::tag v$TAG does not match Cargo.toml version $CRATE"
+            exit 1
+          fi
+
+      - name: Test (conformance vectors must pass before publish)
+        run: cargo test --all --locked
+
+      - name: Publish dry-run
+        run: cargo publish --dry-run --locked
+
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --locked
