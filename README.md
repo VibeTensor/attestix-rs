@@ -4,7 +4,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
 Offline verifier for credentials and delegation chains issued by the
-[Attestix](https://attestix.io) Python core — **no Python runtime needed**.
+[Attestix](https://attestix.io) Python core: **no Python runtime needed**.
 
 It re-implements the Attestix verification surface in pure, idiomatic Rust and
 passes the shared cross-language [conformance vectors][vectors] byte-for-byte.
@@ -12,10 +12,10 @@ Strong fit for WebAssembly and embedded targets; the verify + canonicalize core
 is `unsafe`-free and the Rust crate is intended to become the canonical crypto
 core other language ports can FFI into.
 
-- `canonicalize(&Value) -> Vec<u8>` — the Attestix **JCS-style** canonical bytes
-- `decode_did_key(&str) -> [u8; 32]` — `did:key` (Ed25519) → raw public key
-- `verify_credential(&vc, now) -> CredentialResult` — W3C VC: signature + expiry + revocation
-- `verify_delegation_chain(parent, child, server_pubkey, now) -> DelegationResult` — UCAN EdDSA JWT chain + capability attenuation
+- `canonicalize(&Value) -> Vec<u8>`: the Attestix **JCS-style** canonical bytes
+- `decode_did_key(&str) -> [u8; 32]`: `did:key` (Ed25519) → raw public key
+- `verify_credential(&vc, now) -> CredentialResult`: W3C VC: signature + expiry + revocation
+- `verify_delegation_chain(parent, child, server_pubkey, now) -> DelegationResult`: UCAN EdDSA JWT chain + capability attenuation
 
 ## Install
 
@@ -24,7 +24,7 @@ core other language ports can FFI into.
 attestix = "0.4"
 ```
 
-(Not yet published to crates.io — see [Publishing](#publishing). Until then,
+(Not yet published to crates.io; see [Publishing](#publishing). Until then,
 depend on the git source:)
 
 ```toml
@@ -57,10 +57,10 @@ This is the single most error-prone part of any Attestix port. The Attestix
 canonical form is a **practical subset of JCS** with two load-bearing
 divergences from strict RFC 8785:
 
-1. **NFC Unicode normalization** — every string value *and* every object key is
+1. **NFC Unicode normalization**: every string value *and* every object key is
    `NFC`-normalized before serialization. RFC 8785 explicitly does **not**
    normalize. (`"cafe" + U+0301` → `"café"`.)
-2. **Whole-number floats collapse to integers** — `1.0` → `1`. Large integers
+2. **Whole-number floats collapse to integers**: `1.0` → `1`. Large integers
    (`> 2^53`, e.g. `9007199254740993`) keep full precision.
 
 Everything else matches JCS: keys sorted by Unicode code point, `(",", ":")`
