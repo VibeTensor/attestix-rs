@@ -2,13 +2,13 @@
 //!
 //! Matches `attestix/services/delegation_service.py`. Delegations are **NOT**
 //! JCS-signed: each is a compact EdDSA JWT. The signed message is
-//! `base64url(header).base64url(payload)` (unpadded, per the JWT spec — distinct
+//! `base64url(header).base64url(payload)` (unpadded, per the JWT spec - distinct
 //! from the *padded* base64url of the VC `proofValue`). Only `alg=EdDSA` is
 //! accepted (`alg:none` is rejected).
 //!
 //! Chain verification (recursive over `prf[]`):
 //!  1. each JWT signature verifies under the server key;
-//!  2. each JWT is not expired (`exp`) — checked when `now` is supplied;
+//!  2. each JWT is not expired (`exp`) - checked when `now` is supplied;
 //!  3. cycles (a repeated `jti`) are rejected;
 //!  4. capability attenuation: a child's `att` MUST be a subset of its parent's.
 

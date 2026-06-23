@@ -1,6 +1,6 @@
 # Publish the `attestix` crate to crates.io on a version tag.
 #
-# SETUP (one-time, done by a human in the GitHub web UI — never paste a token
+# SETUP (one-time, done by a human in the GitHub web UI - never paste a token
 # into a PR, an issue, a commit, or a chat):
 #   1. crates.io -> Account Settings -> API Tokens -> New Token
 #      scopes: publish-new + publish-update.  Copy it once.

@@ -2,7 +2,7 @@
 //! vectors vendored verbatim from VibeTensor/attestix `spec/verify/v1`) and
 //! assert every vector against the Rust verifier.
 //!
-//! A failing vector means this port is wrong, not the vector — the canonical
+//! A failing vector means this port is wrong, not the vector - the canonical
 //! byte-match (`canon-001`) is the highest-signal test.
 
 use attestix::{

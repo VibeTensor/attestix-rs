@@ -2,9 +2,9 @@
 //!
 //! This is **NOT** strict RFC 8785. The two load-bearing divergences:
 //!
-//! 1. **NFC normalization** — every string value and every object key is
+//! 1. **NFC normalization** - every string value and every object key is
 //!    Unicode-NFC-normalized before serialization. RFC 8785 does *not* normalize.
-//! 2. **Number formatting** — whole-number floats collapse to integers
+//! 2. **Number formatting** - whole-number floats collapse to integers
 //!    (`1.0` -> `1`); other numbers are emitted from their literal token. Large
 //!    integers (`> 2^53`) keep full precision.
 //!
@@ -68,7 +68,7 @@ fn write_value(value: &Value, out: &mut String) {
 /// `arbitrary_precision`, which exposes the literal token via `as_str`).
 ///
 /// Mirrors Python's `_normalize_for_signing`:
-/// - integer tokens (no `.`, `e`, `E`) are emitted verbatim — big ints keep
+/// - integer tokens (no `.`, `e`, `E`) are emitted verbatim - big ints keep
 ///   full precision;
 /// - whole-number floats (`1.0`, `2.0e0`) collapse to their integer form;
 /// - other floats are emitted via their canonical decimal form.

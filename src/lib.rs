@@ -1,7 +1,7 @@
 //! # attestix
 //!
 //! Offline verifier for credentials and delegation chains issued by the
-//! [Attestix](https://attestix.io) Python core — **no Python runtime needed**.
+//! [Attestix](https://attestix.io) Python core - **no Python runtime needed**.
 //!
 //! It reproduces the Attestix **JCS-style canonical form** byte-for-byte (see
 //! [`canonicalize`]). This is **not** strict RFC 8785: Attestix additionally

@@ -21,7 +21,7 @@ core other language ports can FFI into.
 
 ```toml
 [dependencies]
-attestix = "0.4"
+attestix = "0.4.1"
 ```
 
 (Not yet published to crates.io; see [Publishing](#publishing). Until then,
@@ -121,7 +121,7 @@ This crate is **publish-ready but not yet published**. To release to
 # one-time: get a token from https://crates.io/settings/tokens
 cargo login <CRATES_IO_TOKEN>
 cargo publish --dry-run     # verify packaging
-cargo publish               # release v0.4.0
+cargo publish               # release v0.4.1
 ```
 
 No token is bundled here; publishing is an explicit, owner-run step.

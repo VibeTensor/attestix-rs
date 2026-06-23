@@ -4,7 +4,7 @@ use core::fmt;
 
 /// Errors raised while decoding inputs or verifying credentials / delegations.
 ///
-/// Note: a *cryptographically invalid* signature is **not** an `Err` — it is a
+/// Note: a *cryptographically invalid* signature is **not** an `Err` - it is a
 /// successful verification whose result reports `signature_valid: false`. An
 /// `Err` is reserved for malformed inputs (bad base64, missing fields, etc.).
 #[derive(Debug, Clone, PartialEq, Eq)]
