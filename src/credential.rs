@@ -9,7 +9,7 @@ use ed25519_dalek::{Signature, VerifyingKey};
 use serde_json::{Map, Value};
 use time::OffsetDateTime;
 
-use crate::canonical::canonicalize;
+use crate::canonical::try_canonicalize;
 use crate::didkey::decode_did_key;
 use crate::error::VerifyError;
 
@@ -56,6 +56,16 @@ pub fn verify_credential(vc: &Value, now: OffsetDateTime) -> Result<CredentialRe
         .or_else(|| obj.get("issuer").and_then(Value::as_str))
         .ok_or(VerifyError::Structure("missing issuer.id"))?;
     let pubkey = decode_did_key(issuer_did)?;
+    if let Some(vm) = obj.get("proof").and_then(|p| p.get("verificationMethod")) {
+        let vm = vm
+            .as_str()
+            .ok_or(VerifyError::Structure("invalid verificationMethod"))?;
+        if vm.split('#').next() != Some(issuer_did) {
+            return Err(VerifyError::Structure(
+                "verificationMethod does not match issuer",
+            ));
+        }
+    }
 
     // --- proof.proofValue (padded base64url Ed25519 signature) ---
     let proof_value = obj
@@ -91,7 +101,7 @@ fn verify_proof(
             signing.insert(k.clone(), v.clone());
         }
     }
-    let canonical = canonicalize(&Value::Object(signing));
+    let canonical = try_canonicalize(&Value::Object(signing))?;
 
     let sig_bytes = decode_b64url(proof_value)?;
     let sig = match Signature::from_slice(&sig_bytes) {
@@ -105,25 +115,28 @@ fn verify_proof(
     Ok(key.verify_strict(&canonical, &sig).is_ok())
 }
 
-/// `now < expirationDate`. Absent `expirationDate` ⇒ not expired.
+/// `now < expirationDate`. Absent `expirationDate` implies not expired.
 fn check_not_expired(obj: &Map<String, Value>, now: OffsetDateTime) -> Result<bool, VerifyError> {
-    match obj.get("expirationDate").and_then(Value::as_str) {
+    match obj.get("expirationDate") {
         None => Ok(true),
-        Some(exp_str) => {
+        Some(raw) => {
+            let exp_str = raw
+                .as_str()
+                .ok_or(VerifyError::Time("invalid expirationDate"))?;
             let exp = parse_rfc3339(exp_str)?;
             Ok(now < exp)
         }
     }
 }
 
-/// `credentialStatus.revoked` falsy ⇒ not revoked.
+/// `credentialStatus.revoked` falsy implies not revoked.
 fn check_not_revoked(obj: &Map<String, Value>) -> bool {
     match obj.get("credentialStatus") {
         None => true,
         Some(status) => match status.get("revoked") {
             Some(Value::Bool(b)) => !b,
             Some(Value::Null) | None => true,
-            // Any non-false, non-null truthy value ⇒ revoked.
+            // Any non-false, non-null truthy value implies revoked.
             Some(other) => other.as_bool().map(|b| !b).unwrap_or(false),
         },
     }

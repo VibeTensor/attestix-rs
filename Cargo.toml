@@ -2,7 +2,7 @@
 name = "attestix"
 version = "0.4.1"
 edition = "2021"
-rust-version = "1.74"
+rust-version = "1.88"
 description = "Attestix offline credential verifier - verify Ed25519 W3C Verifiable Credentials and UCAN delegation chains issued by the Attestix Python core, with no Python runtime. Reproduces the Attestix JCS-style canonical form (NFC-normalized, not strict RFC 8785)."
 authors = ["VibeTensor <hello@vibetensor.com>"]
 license = "Apache-2.0"
