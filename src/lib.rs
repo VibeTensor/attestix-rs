@@ -38,7 +38,7 @@ mod delegation;
 mod didkey;
 mod error;
 
-pub use canonical::canonicalize;
+pub use canonical::{canonicalize, try_canonicalize};
 pub use credential::{verify_credential, CredentialResult};
 pub use delegation::{verify_delegation_chain, DelegationResult};
 pub use didkey::{

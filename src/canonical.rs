@@ -12,10 +12,14 @@
 //! `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`
 //! after the recursive `_normalize_for_signing` pass, encoded UTF-8.
 
+use crate::error::VerifyError;
 use serde_json::Value;
 use unicode_normalization::UnicodeNormalization;
 
 /// Produce the Attestix JCS-style canonical UTF-8 bytes for a JSON value.
+///
+/// Compatibility helper for trusted values. Use `try_canonicalize` for untrusted inputs.
+/// This helper preserves v1 serialization and does not reject ambiguous keys.
 ///
 /// The result must match the conformance vectors' `canonical_bytes_hex`
 /// byte-for-byte.
@@ -23,6 +27,48 @@ pub fn canonicalize(value: &Value) -> Vec<u8> {
     let mut out = String::new();
     write_value(value, &mut out);
     out.into_bytes()
+}
+
+/// Reject ambiguous or unsupported input before compatible v1 serialization.
+pub fn try_canonicalize(value: &Value) -> Result<Vec<u8>, VerifyError> {
+    validate(value)?;
+    Ok(canonicalize(value))
+}
+
+fn validate(value: &Value) -> Result<(), VerifyError> {
+    match value {
+        Value::Object(map) => {
+            let mut keys = std::collections::HashSet::new();
+            for (key, child) in map {
+                if !keys.insert(key.nfc().collect::<String>()) {
+                    return Err(VerifyError::Structure("duplicate normalized object key"));
+                }
+                validate(child)?;
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                validate(item)?;
+            }
+        }
+        Value::Number(number) => {
+            let token = number.to_string();
+            if token.contains('.') || token.contains('e') || token.contains('E') {
+                let f = token
+                    .parse::<f64>()
+                    .map_err(|_| VerifyError::Structure("invalid float"))?;
+                if !f.is_finite()
+                    || (f == 0.0 && token.starts_with('-'))
+                    || (f != 0.0 && f.abs() < 0.0001)
+                    || (f == f.trunc() && f.abs() >= i128::MAX as f64)
+                {
+                    return Err(VerifyError::Structure("unsupported float magnitude"));
+                }
+            }
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 fn write_value(value: &Value, out: &mut String) {
