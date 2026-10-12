@@ -1,138 +1,102 @@
-# attestix (Rust)
+# Attestix verifier for Rust
 
-[![test](https://github.com/VibeTensor/attestix-rs/actions/workflows/test.yml/badge.svg)](https://github.com/VibeTensor/attestix-rs/actions/workflows/test.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
+Offline verification of Attestix Ed25519 credentials and parent/child UCAN
+delegations, without Python. The crate uses the custom Attestix v1 canonical
+format and returns technical verification results. Those results do not establish
+issuer trust or the truth or legal conformity of signed claims.
 
-Offline verifier for credentials and delegation chains issued by the
-[Attestix](https://attestix.io) Python core: **no Python runtime needed**.
+## Install from source
 
-It re-implements the Attestix verification surface in pure, idiomatic Rust and
-passes the shared cross-language [conformance vectors][vectors] byte-for-byte.
-Strong fit for WebAssembly and embedded targets; the verify + canonicalize core
-is `unsafe`-free and the Rust crate is intended to become the canonical crypto
-core other language ports can FFI into.
-
-- `canonicalize(&Value) -> Vec<u8>`: the Attestix **JCS-style** canonical bytes
-- `decode_did_key(&str) -> [u8; 32]`: `did:key` (Ed25519) → raw public key
-- `verify_credential(&vc, now) -> CredentialResult`: W3C VC: signature + expiry + revocation
-- `verify_delegation_chain(parent, child, server_pubkey, now) -> DelegationResult`: UCAN EdDSA JWT chain + capability attenuation
-
-## Install
+Requires Rust 1.88 or later. Pin the reviewed source revision:
 
 ```toml
 [dependencies]
-attestix = "0.4.1"
+attestix = { git = "https://github.com/VibeTensor/attestix-rs", rev = "527dbfc6340d73e842cc8bbd7192e7c6295a9760" }
+serde_json = "1"
 ```
 
-(Not yet published to crates.io; see [Publishing](#publishing). Until then,
-depend on the git source:)
+This documents source installation. Package-registry publication and production
+adoption require their own release review.
 
-```toml
-[dependencies]
-attestix = { git = "https://github.com/VibeTensor/attestix-rs" }
-```
-
-## Verify a credential (10 lines)
+## Verify a credential
 
 ```rust
-use attestix::{verify_credential, parse_rfc3339};
+use attestix::{parse_rfc3339, verify_credential};
 use serde_json::Value;
 
-let vc: Value = serde_json::from_str(vc_json)?;      // a full W3C VC from Attestix
-let now = parse_rfc3339("2026-06-01T00:00:00+00:00")?;
-let r = verify_credential(&vc, now)?;
-assert!(r.signature_valid && r.not_expired && r.not_revoked);
-println!("valid = {}", r.verify());
+fn verify_at(vc_json: &str) -> Result<bool, Box<dyn std::error::Error>> {
+    let vc: Value = serde_json::from_str(vc_json)?;
+    // Choose the actual evaluation time in the calling application.
+    let now = parse_rfc3339("2026-06-01T00:00:00+00:00")?;
+    let result = verify_credential(&vc, now)?;
+    Ok(result.verify())
+}
 ```
 
-Run the bundled example:
+The verifier resolves the Ed25519 key from the signed issuer `did:key` and rejects
+a conflicting present `proof.verificationMethod`. Malformed expiry, signature,
+key or unsupported canonical input returns an error or a failed result. An absent
+expiry is accepted by this profile; enforce mandatory expiry in the application.
 
-```sh
-cargo run --example verify_vc
-```
+`credentialStatus` is excluded from the signature. `not_revoked` only describes
+the supplied status flag; this verifier does not fetch fresh external revocation
+state. Enforce expected issuer, trusted status, evaluation time and replay policy
+before using the result to authorize an action.
 
-## The canonical form is JCS-*style*, NOT strict RFC 8785
+## API and checked canonicalization
 
-This is the single most error-prone part of any Attestix port. The Attestix
-canonical form is a **practical subset of JCS** with two load-bearing
-divergences from strict RFC 8785:
+| API | Scope |
+| --- | --- |
+| `verify_credential(&Value, now)` | Issuer-bound signature and supplied expiry/status checks. |
+| `verify_delegation_chain(parent, child, server_pubkey, now_unix)` | One EdDSA parent/child pair and capability attenuation. `None` skips expiry checks. |
+| `try_canonicalize(&Value)` | Checked custom-format bytes; rejects NFC-key collisions and unsupported numeric edges. |
+| `canonicalize(&Value)` | Legacy compatibility helper for trusted values; does not reject ambiguous keys. |
+| `decode_did_key(&str)` | Raw Ed25519 `did:key` decoding. |
+| `parse_rfc3339(&str)` | Explicit timestamp parsing. |
 
-1. **NFC Unicode normalization**: every string value *and* every object key is
-   `NFC`-normalized before serialization. RFC 8785 explicitly does **not**
-   normalize. (`"cafe" + U+0301` → `"café"`.)
-2. **Whole-number floats collapse to integers**: `1.0` → `1`. Large integers
-   (`> 2^53`, e.g. `9007199254740993`) keep full precision.
+Use `try_canonicalize` on untrusted values; credential verification already uses
+it. Standard `serde_json::Value` parsing may discard exact duplicate JSON members
+before this check. Reject duplicates at an earlier parsing boundary if required.
+Do not substitute the legacy helper to bypass a checked-format error.
 
-Everything else matches JCS: keys sorted by Unicode code point, `(",", ":")`
-separators (no whitespace), raw UTF-8 output (no `\uXXXX` escapes). The result is
-exactly:
+Delegation verification takes a caller-trusted server key and evaluates a pair,
+not an arbitrary full delegation graph. Apply resource/action, identity,
+revocation and freshness rules outside the helper. Set `now_unix` when expiry
+matters; disabling that argument is a deliberate policy choice.
 
-```text
-json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-```
+## Wire profile and limitations
 
-after the recursive whole-float→int pass. Signatures are **Ed25519** (RFC 8032)
-over those canonical bytes; the VC `proofValue` is **padded** base64url, while
-UCAN JWT signatures use the **unpadded** base64url JWT compact form.
+The Attestix format NFC-normalizes strings/keys and collapses supported
+whole-number floats. It is not strict RFC 8785/JCS. Large integer tokens are
+preserved; arbitrary floating-point compatibility with other serializers is not
+guaranteed. Verification supports the profile exercised in
+[`testdata/vectors.json`](testdata/vectors.json) and security-boundary tests,
+rather than every W3C credential proof suite.
 
-See the canonical-form spec at <https://attestix.io/spec/bundle/v1> and the full
-conformance contract in the parent repo at
-[`spec/verify/v1/README.md`][readme].
+See the [parent verification contract](https://github.com/VibeTensor/attestix/tree/main/spec/verify/v1).
+A valid signature is evidence about the key and signed bytes, not a compliance
+certification, legal assessment or proof that an event was completely captured.
+The crate forbids unsafe Rust in its own source; that does not establish the same
+property for all dependencies or deployment environments.
 
-## Conformance
-
-The shared vectors are vendored verbatim at
-[`testdata/vectors.json`](./testdata/vectors.json) and asserted by
-[`tests/conformance.rs`](./tests/conformance.rs):
+## Development and WebAssembly
 
 ```sh
 cargo test
-# conformance: 7/7 vectors passed
+cargo doc --no-deps
+cargo run --example verify_vc
 ```
 
-| vector | asserts |
-|---|---|
-| `canon-001` | byte-identical JCS-style canonicalization (NFC, codepoint sort, raw UTF-8, whole-float→int, big int) |
-| `didkey-001` | `0xed01 ‖ raw32` base58btc → 32-byte key |
-| `vc-valid-001` | valid VC ⇒ verify **true** |
-| `vc-tampered-001` | flipped claim byte ⇒ signature invalid ⇒ verify **false** |
-| `vc-expired-001` | past `expirationDate` ⇒ verify **false** (signature still valid) |
-| `ucan-chain-valid-001` | child `att` ⊆ parent `att` ⇒ verify **true** |
-| `ucan-chain-escalation-002` | child `att` ⊄ parent `att` (`admin`) ⇒ verify **false** |
-
-## WebAssembly
-
-The verifier is verify-only (no signing, no RNG), so it builds for the browser
-and embedded WASM targets:
+The bundled example uses a fixed signed fixture and evaluation time, not the
+current date or a live issuer/status service. CI tests Rust 1.88 and stable,
+checks clippy, and builds the library for `wasm32-unknown-unknown`. A WASM build
+is not a browser application or a tested embedded integration.
 
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo build --target wasm32-unknown-unknown --lib
 ```
 
-CI builds this target on every push.
-
-## Publishing
-
-This crate is **publish-ready but not yet published**. To release to
-[crates.io](https://crates.io):
-
-```sh
-# one-time: get a token from https://crates.io/settings/tokens
-cargo login <CRATES_IO_TOKEN>
-cargo publish --dry-run     # verify packaging
-cargo publish               # release v0.4.1
-```
-
-No token is bundled here; publishing is an explicit, owner-run step.
-
 ## License
 
-[Apache-2.0](./LICENSE) © 2026 VibeTensor.
-
-Part of the Attestix project: [VibeTensor/attestix][parent] (Python core +
-conformance vectors).
-
-[parent]: https://github.com/VibeTensor/attestix
-[vectors]: https://github.com/VibeTensor/attestix/tree/main/spec/verify/v1
-[readme]: https://github.com/VibeTensor/attestix/blob/main/spec/verify/v1/README.md
+[Apache-2.0](LICENSE). Part of [Attestix](https://github.com/VibeTensor/attestix).
