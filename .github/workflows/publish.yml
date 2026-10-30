@@ -42,11 +42,13 @@ jobs:
   publish:
     name: publish to crates.io
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       # actions/checkout v4.3.0
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Select the existing release tag
         env:
@@ -58,7 +60,12 @@ jobs:
             echo "::error::Select an existing vMAJOR.MINOR.PATCH release tag"
             exit 1
           fi
+          git fetch --no-tags origin "refs/heads/main:refs/remotes/origin/main"
           git fetch --no-tags origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          if ! git merge-base --is-ancestor "refs/tags/$RELEASE_TAG" refs/remotes/origin/main; then
+            echo "::error::The release tag must be part of the reviewed main branch"
+            exit 1
+          fi
           git checkout --detach "refs/tags/$RELEASE_TAG"
           echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
 
